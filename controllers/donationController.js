@@ -86,42 +86,92 @@ const initializeDonation = async (req, res) => {
     }
 };
 
+// Helper function to format payment method
+const getPaymentMethod = (channel) => {
+    const methodMap = {
+        'mobile_money': 'Mobile Money (M-Pesa)',
+        'card': 'Credit/Debit Card',
+        'bank': 'Bank Transfer',
+        'ussd': 'USSD',
+        'qr': 'QR Code',
+        'mpesa': 'M-Pesa',
+        'mptill': 'M-Pesa Till',
+        'atl_ke': 'Airtel Money'
+    };
+    return methodMap[channel] || channel;
+};
+
 // Verify donation payment
 const verifyDonation = async (req, res) => {
     try {
         const { reference } = req.params;
 
         const response = await paystack.get(`/transaction/verify/${reference}`);
+        const paystackData = response.data.data;
 
-        if (response.data.data.status === 'success') {
+        if (paystackData.status === 'success') {
             // Update donation status
             await Donation.findOneAndUpdate(
                 { reference },
                 { 
                     status: 'success',
                     completedAt: new Date(),
-                    paystackData: response.data.data
+                    paystackData: paystackData
                 }
             );
 
-            res.json({
+            // Create clean, user-friendly response while keeping original data structure
+            const cleanResponse = {
                 success: true,
                 message: 'Payment verified successfully',
-                data: response.data.data
-            });
+                data: {
+                    // Keep original Paystack data for compatibility
+                    ...paystackData,
+                    // Add clean formatted data
+                    formatted: {
+                        transactionId: paystackData.id,
+                        reference: paystackData.reference,
+                        receiptNumber: paystackData.receipt_number,
+                        amount: paystackData.amount / 100, // Convert back from kobo
+                        currency: paystackData.currency,
+                        paidAt: paystackData.paid_at,
+                        paymentMethod: getPaymentMethod(paystackData.channel),
+                        customer: {
+                            name: paystackData.metadata?.donor_name || 'Customer',
+                            email: paystackData.customer?.email,
+                            phone: paystackData.authorization?.mobile_money_number
+                        },
+                        summary: {
+                            amountPaid: `KES ${(paystackData.amount / 100).toLocaleString()}`,
+                            transactionFee: `KES ${(paystackData.fees / 100).toLocaleString()}`,
+                            netAmount: `KES ${((paystackData.amount - paystackData.fees) / 100).toLocaleString()}`,
+                            paymentDate: new Date(paystackData.paid_at).toLocaleDateString('en-KE', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })
+                        }
+                    }
+                }
+            };
+
+            res.json(cleanResponse);
         } else {
             await Donation.findOneAndUpdate(
                 { reference },
                 { 
                     status: 'failed',
-                    paystackData: response.data.data
+                    paystackData: paystackData
                 }
             );
 
             res.status(400).json({
                 success: false,
                 message: 'Payment verification failed',
-                data: response.data.data
+                data: paystackData
             });
         }
 
