@@ -40,7 +40,7 @@ const initializeDonation = async (req, res) => {
                     }
                 ]
             },
-            callback_url: `https://paystack-5vql.onrender.com/api/donations/verify/${reference}`
+            callback_url: `https://bipstechnicalcollege.co.ke/payment-success?reference=${reference}`
         };
 
         console.log('Sending payload to PayStack:', payload);
