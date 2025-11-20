@@ -40,7 +40,7 @@ const initializeDonation = async (req, res) => {
                     }
                 ]
             },
-            callback_url: `http://localhost:5000/api/donations/verify/${reference}`
+            callback_url: `https://paystack-5vql.onrender.com/api/donations/verify/${reference}`
         };
 
         console.log('Sending payload to PayStack:', payload);
