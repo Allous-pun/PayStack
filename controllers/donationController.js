@@ -4,7 +4,7 @@ const Donation = require('../models/Donation');
 // Initialize donation payment
 const initializeDonation = async (req, res) => {
     try {
-        const { email, amount, name } = req.body;
+        const { email, amount, name, currency = 'KES' } = req.body;
 
         // Validate input
         if (!email || !amount || !name) {
@@ -14,21 +14,34 @@ const initializeDonation = async (req, res) => {
             });
         }
 
-        // Validate amount
-        if (amount < 1) {
+        // Validate currency
+        const supportedCurrencies = ['KES', 'USD', 'EUR', 'GBP'];
+        if (!supportedCurrencies.includes(currency)) {
             return res.status(400).json({
                 success: false,
-                message: 'Amount must be at least 1 KES'
+                message: `Unsupported currency. Supported: ${supportedCurrencies.join(', ')}`
+            });
+        }
+
+        // Validate amount based on currency
+        const minAmounts = { KES: 1, USD: 1, EUR: 1, GBP: 1 };
+        if (amount < minAmounts[currency]) {
+            return res.status(400).json({
+                success: false,
+                message: `Amount must be at least ${minAmounts[currency]} ${currency}`
             });
         }
 
         const reference = `DON_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+        // Convert amount to smallest unit
+        const amountInSmallestUnit = Math.round(amount * 100);
+
         // Create PayStack transaction
         const payload = {
             email: email,
-            amount: Math.round(amount * 100), // Convert to kobo
-            currency: 'KES',
+            amount: amountInSmallestUnit,
+            currency: currency,
             reference: reference,
             metadata: {
                 donor_name: name,
@@ -52,6 +65,7 @@ const initializeDonation = async (req, res) => {
             donorEmail: email,
             donorName: name,
             amount: amount,
+            currency: currency,
             reference: reference,
             status: 'pending'
         });
@@ -66,7 +80,8 @@ const initializeDonation = async (req, res) => {
             data: {
                 authorization_url: response.data.data.authorization_url,
                 reference: response.data.data.reference,
-                access_code: response.data.data.access_code
+                access_code: response.data.data.access_code,
+                currency: currency
             }
         });
 
@@ -101,6 +116,25 @@ const getPaymentMethod = (channel) => {
     return methodMap[channel] || channel;
 };
 
+// Helper function to format currency display
+const formatCurrency = (amount, currency, fees = 0) => {
+    const currencySymbols = {
+        'KES': 'KES',
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£'
+    };
+    
+    const symbol = currencySymbols[currency] || currency;
+    const netAmount = amount - fees;
+    
+    return {
+        amountPaid: `${symbol} ${amount.toLocaleString()}`,
+        transactionFee: `${symbol} ${fees.toLocaleString()}`,
+        netAmount: `${symbol} ${netAmount.toLocaleString()}`
+    };
+};
+
 // Verify donation payment
 const verifyDonation = async (req, res) => {
     try {
@@ -120,6 +154,13 @@ const verifyDonation = async (req, res) => {
                 }
             );
 
+            // Convert amounts back from smallest units
+            const amountInMainUnit = paystackData.amount / 100;
+            const feesInMainUnit = paystackData.fees / 100;
+            const currency = paystackData.currency || 'KES';
+            
+            const formattedCurrency = formatCurrency(amountInMainUnit, currency, feesInMainUnit);
+
             // Create clean, user-friendly response while keeping original data structure
             const cleanResponse = {
                 success: true,
@@ -132,8 +173,8 @@ const verifyDonation = async (req, res) => {
                         transactionId: paystackData.id,
                         reference: paystackData.reference,
                         receiptNumber: paystackData.receipt_number,
-                        amount: paystackData.amount / 100, // Convert back from kobo
-                        currency: paystackData.currency,
+                        amount: amountInMainUnit,
+                        currency: currency,
                         paidAt: paystackData.paid_at,
                         paymentMethod: getPaymentMethod(paystackData.channel),
                         customer: {
@@ -142,10 +183,10 @@ const verifyDonation = async (req, res) => {
                             phone: paystackData.authorization?.mobile_money_number
                         },
                         summary: {
-                            amountPaid: `KES ${(paystackData.amount / 100).toLocaleString()}`,
-                            transactionFee: `KES ${(paystackData.fees / 100).toLocaleString()}`,
-                            netAmount: `KES ${((paystackData.amount - paystackData.fees) / 100).toLocaleString()}`,
-                            paymentDate: new Date(paystackData.paid_at).toLocaleDateString('en-KE', {
+                            amountPaid: formattedCurrency.amountPaid,
+                            transactionFee: formattedCurrency.transactionFee,
+                            netAmount: formattedCurrency.netAmount,
+                            paymentDate: new Date(paystackData.paid_at).toLocaleDateString('en-US', {
                                 weekday: 'long',
                                 year: 'numeric',
                                 month: 'long',

@@ -15,6 +15,7 @@ const donationSchema = new mongoose.Schema({
     },
     currency: {
         type: String,
+        enum: ['KES', 'USD', 'EUR', 'GBP'],
         default: 'KES'
     },
     reference: {
