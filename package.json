@@ -1,7 +1,7 @@
 {
   "name": "paystack",
   "version": "1.0.0",
-  "description": "PayStack donation backend API",
+  "description": "PayStack donation backend API with College Invoicing System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,7 +12,9 @@
     "paystack",
     "donations",
     "api",
-    "backend"
+    "backend",
+    "invoicing",
+    "college"
   ],
   "author": "",
   "license": "ISC",
@@ -21,7 +23,9 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "mongoose": "^8.20.0"
+    "mongoose": "^8.20.0",
+    "pdfkit": "^0.15.0",
+    "nodemailer": "^6.9.17"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
