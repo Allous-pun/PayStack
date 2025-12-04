@@ -11,15 +11,11 @@ const sponsorSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
-    email: {
-        type: String,
-        required: true,
-        trim: true
-    },
     phone: {
         type: String,
         required: true,
-        trim: true
+        trim: true,
+        unique: true  // Phone becomes the unique identifier
     },
     studentsReferred: {
         type: Number,
@@ -39,5 +35,7 @@ const sponsorSchema = new mongoose.Schema({
         trim: true
     }
 });
+
+// Remove email field completely
 
 module.exports = mongoose.model('Sponsor', sponsorSchema);

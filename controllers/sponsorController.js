@@ -3,33 +3,30 @@ const Sponsor = require('../models/Sponsor');
 // Create new sponsor
 const createSponsor = async (req, res) => {
     try {
-        const { name, contactPerson, email, phone, notes } = req.body;
+        const { name, contactPerson, phone, notes } = req.body;
 
-        // Validate input
-        if (!name || !contactPerson || !email || !phone) {
+        // Validate input - NO EMAIL
+        if (!name || !contactPerson || !phone) {
             return res.status(400).json({
                 success: false,
-                message: 'Name, contact person, email, and phone are required'
+                message: 'Name, contact person, and phone are required'
             });
         }
 
-        // Check if sponsor already exists
-        const existingSponsor = await Sponsor.findOne({ 
-            $or: [{ email }, { phone }] 
-        });
+        // Check if sponsor already exists by phone only
+        const existingSponsor = await Sponsor.findOne({ phone });
 
         if (existingSponsor) {
             return res.status(400).json({
                 success: false,
-                message: 'Sponsor with this email or phone already exists'
+                message: 'Sponsor with this phone number already exists'
             });
         }
 
-        // Create sponsor
+        // Create sponsor WITHOUT EMAIL
         const sponsor = new Sponsor({
             name,
             contactPerson,
-            email,
             phone,
             notes
         });
@@ -55,7 +52,20 @@ const createSponsor = async (req, res) => {
 // Get all sponsors
 const getSponsors = async (req, res) => {
     try {
-        const sponsors = await Sponsor.find().sort({ registrationDate: -1 });
+        const { phone } = req.query;
+        let query = {};
+        
+        if (phone) {
+            // Handle URL encoding of plus signs
+            let searchPhone = phone;
+            if (phone.startsWith(' ')) {
+                // If the plus was converted to space by URL parsing
+                searchPhone = '+' + phone.substring(1);
+            }
+            query.phone = searchPhone;
+        }
+        
+        const sponsors = await Sponsor.find(query).sort({ registrationDate: -1 });
         
         res.json({
             success: true,

@@ -56,10 +56,7 @@ const invoiceSchema = new mongoose.Schema({
         default: 'draft'
     },
     payments: [{
-        paymentId: {
-            type: String,
-            unique: true
-        },
+        paymentId: String,
         amount: Number,
         date: Date,
         method: String
